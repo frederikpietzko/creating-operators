@@ -1,0 +1,13 @@
+apiVersion: webapp.kops.io/v1alpha1
+kind: Webapp
+metadata:
+  labels:
+    app.kubernetes.io/name: operator
+    app.kubernetes.io/managed-by: kustomize
+  name: webapp-sample
+spec:
+  image:
+    name: "nginx:latest"
+  ports:
+    - "8000"
+
