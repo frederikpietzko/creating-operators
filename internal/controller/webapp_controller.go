@@ -73,32 +73,40 @@ func (r *WebappReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		return ctrl.Result{}, err
 	}
 
-	if value, ok := webapp.GetLabels()[MANAGED_LABEL]; !ok || value == "false" {
-		webapp.Labels[MANAGED_LABEL] = "true"
-		webapp.Labels[REVISION_LABEL] = *stringHash
+	if webapp.Labels == nil {
+		webapp.Labels = make(map[string]string)
 	}
 
-	if value, _ := webapp.GetLabels()[REVISION_LABEL]; value != *stringHash {
+	if webapp.Labels[REVISION_LABEL] != stringHash {
+		webapp.Labels[MANAGED_LABEL] = "true"
+		webapp.Labels[REVISION_LABEL] = stringHash
+
 		if err := r.Update(ctx, webapp); err != nil {
 			l.Error(err, "Failed Updating Webapp Labels")
 			return ctrl.Result{}, err
 		}
 		l.Info("Updated Webapp Labels", "webapp", webapp)
+		return ctrl.Result{}, err
 	}
 
 	deployment := &appsV1.Deployment{}
-	if err := r.upsertDeployment(ctx, req, deployment, webapp, *stringHash); err != nil {
+	if err := r.upsertDeployment(ctx, req, deployment, webapp, stringHash); err != nil {
 		return ctrl.Result{}, err
 	}
 
 	return ctrl.Result{}, nil
 }
 
-func (r *WebappReconciler) upsertDeployment(ctx context.Context, req ctrl.Request, deployment *appsV1.Deployment, webapp *webappv1alpha1.Webapp, stringHash string) error {
+func (r *WebappReconciler) upsertDeployment(ctx context.Context, req ctrl.Request, deployment *appsV1.Deployment, webapp *webappv1alpha1.Webapp, hash string) error {
 	l := logf.FromContext(ctx)
-	if err := r.Client.Get(ctx, req.NamespacedName, deployment); apierrors.IsNotFound(err) {
-		if err := update(deployment, webapp, stringHash); err != nil {
+	err := r.Client.Get(ctx, req.NamespacedName, deployment)
+
+	if apierrors.IsNotFound(err) {
+		if err := r.consructDeployment(deployment, webapp, hash); err != nil {
 			l.Error(err, "Failed to convert webapp to deployment!")
+			return err
+		}
+		if err := ctrl.SetControllerReference(webapp, deployment, r.Scheme); err != nil {
 			return err
 		}
 		if err := r.Client.Create(ctx, deployment); err != nil {
@@ -106,11 +114,14 @@ func (r *WebappReconciler) upsertDeployment(ctx context.Context, req ctrl.Reques
 			return err
 		}
 		l.Info("Created webapp deployment", "webapp", webapp, "deployment", deployment)
+		return nil
 
-	} else if err != nil {
+	}
+	if err != nil {
 		return err
-	} else if deployment.Labels[REVISION_LABEL] != stringHash {
-		if err := update(deployment, webapp, stringHash); err != nil {
+	}
+	if deployment.Labels[REVISION_LABEL] != hash {
+		if err := r.updateDeploymentFields(deployment, webapp, hash); err != nil {
 			l.Error(err, "Failed to convert webapp to deployment!")
 			return err
 		}
@@ -124,31 +135,46 @@ func (r *WebappReconciler) upsertDeployment(ctx context.Context, req ctrl.Reques
 	return nil
 }
 
-func update(deployment *appsV1.Deployment, webapp *webappv1alpha1.Webapp, hash string) error {
-	deployment.APIVersion = "apps/v1"
-	deployment.Kind = "Deployment"
-	deployment.Name = webapp.Name
+func (r *WebappReconciler) consructDeployment(deployment *appsV1.Deployment, webapp *webappv1alpha1.Webapp, hash string) error {
+	deployment.ObjectMeta = metaV1.ObjectMeta{
+		Name:      webapp.Name,
+		Namespace: webapp.Namespace,
+		Labels: map[string]string{
+			MANAGED_LABEL:  "true",
+			REVISION_LABEL: hash,
+		},
+	}
+
 	selectorLabels := map[string]string{
-		"webapp.kops.io/managed": "true",
-		"app":                    webapp.Name,
+		"app": webapp.Name,
 	}
-	podLabels := map[string]string{
-		"webapp.kops.io/managed":       "true",
-		"webapp.kops.io/revision-hash": string(hash[:]),
-		"app":                          webapp.Name,
-	}
-	deployment.Labels = podLabels
-	deployment.Namespace = webapp.Namespace
+
 	deployment.Spec = appsV1.DeploymentSpec{
 		Selector: &metaV1.LabelSelector{
 			MatchLabels: selectorLabels,
 		},
 		Template: coreV1.PodTemplateSpec{
-			ObjectMeta: metaV1.ObjectMeta{
-				Labels: podLabels,
-			},
+			ObjectMeta: metaV1.ObjectMeta{},
 		},
 	}
+
+	return r.updateDeploymentFields(deployment, webapp, hash)
+}
+
+func (r *WebappReconciler) updateDeploymentFields(deployment *appsV1.Deployment, webapp *webappv1alpha1.Webapp, hash string) error {
+	if deployment.Labels == nil {
+		deployment.Labels = make(map[string]string)
+	}
+	deployment.Labels[REVISION_LABEL] = hash
+	deployment.Labels[MANAGED_LABEL] = "true"
+
+	podLabels := map[string]string{
+		MANAGED_LABEL:  "true",
+		REVISION_LABEL: string(hash[:]),
+		"app":          webapp.Name,
+	}
+	deployment.Spec.Template.ObjectMeta.Labels = podLabels
+
 	var ports []coreV1.ContainerPort
 	for _, port := range webapp.Spec.Ports {
 		port, err := strconv.ParseInt(port, 10, 32)
@@ -159,6 +185,7 @@ func update(deployment *appsV1.Deployment, webapp *webappv1alpha1.Webapp, hash s
 			ContainerPort: int32(port),
 		})
 	}
+
 	deployment.Spec.Template.Spec = coreV1.PodSpec{
 		Containers: []coreV1.Container{
 			{
@@ -168,17 +195,17 @@ func update(deployment *appsV1.Deployment, webapp *webappv1alpha1.Webapp, hash s
 			},
 		},
 	}
+
 	return nil
 }
 
-func calcHash(webapp *webappv1alpha1.Webapp) (*string, error) {
-	bytes, err := json.Marshal(webapp)
+func calcHash(webapp *webappv1alpha1.Webapp) (string, error) {
+	bytes, err := json.Marshal(webapp.Spec)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 	hash := sha256.Sum256(bytes)
-	stringHash := hex.EncodeToString(hash[:])[:8]
-	return &stringHash, nil
+	return hex.EncodeToString(hash[:])[:8], nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
