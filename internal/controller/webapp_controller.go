@@ -21,11 +21,14 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"strconv"
 
 	appsV1 "k8s.io/api/apps/v1"
 	coreV1 "k8s.io/api/core/v1"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -94,12 +97,17 @@ func (r *WebappReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		return ctrl.Result{}, err
 	}
 
+	service := &coreV1.Service{}
+	if err := r.upsertService(ctx, service, webapp, stringHash); err != nil {
+		return ctrl.Result{}, err
+	}
+
 	return ctrl.Result{}, nil
 }
 
 func (r *WebappReconciler) upsertDeployment(ctx context.Context, req ctrl.Request, deployment *appsV1.Deployment, webapp *webappv1alpha1.Webapp, hash string) error {
 	l := logf.FromContext(ctx)
-	err := r.Client.Get(ctx, req.NamespacedName, deployment)
+	err := r.Client.Get(ctx, toDeploymentObjectKey(webapp), deployment)
 
 	if apierrors.IsNotFound(err) {
 		if err := r.consructDeployment(deployment, webapp, hash); err != nil {
@@ -137,7 +145,7 @@ func (r *WebappReconciler) upsertDeployment(ctx context.Context, req ctrl.Reques
 
 func (r *WebappReconciler) consructDeployment(deployment *appsV1.Deployment, webapp *webappv1alpha1.Webapp, hash string) error {
 	deployment.ObjectMeta = metaV1.ObjectMeta{
-		Name:      webapp.Name,
+		Name:      deploymentName(webapp),
 		Namespace: webapp.Namespace,
 		Labels: map[string]string{
 			MANAGED_LABEL:  "true",
@@ -199,6 +207,49 @@ func (r *WebappReconciler) updateDeploymentFields(deployment *appsV1.Deployment,
 	return nil
 }
 
+func (r *WebappReconciler) upsertService(ctx context.Context, service *coreV1.Service, webapp *webappv1alpha1.Webapp, hash string) error {
+	service.Name = serviceName(webapp)
+	service.Namespace = webapp.Namespace
+	service.Labels = map[string]string{
+		"app":         webapp.Name,
+		MANAGED_LABEL: "true",
+	}
+	ports := []coreV1.ServicePort{}
+	for _, port := range webapp.Spec.Ports {
+		literalPort, err := strconv.ParseInt(port, 10, 32)
+		if err != nil {
+			return err
+		}
+		p := coreV1.ServicePort{
+			Name:       "http",
+			Port:       int32(literalPort),
+			TargetPort: intstr.FromInt(int(literalPort)),
+			Protocol:   coreV1.ProtocolTCP,
+		}
+		ports = append(ports, p)
+	}
+
+	service.Spec = coreV1.ServiceSpec{
+		Selector: map[string]string{
+			"app": webapp.Name,
+		},
+		Ports: ports,
+		Type:  coreV1.ServiceTypeClusterIP,
+	}
+	ctrl.SetControllerReference(webapp, service, r.Scheme)
+
+	existingService := &coreV1.Service{}
+	err := r.Client.Get(ctx, client.ObjectKey{Namespace: webapp.Namespace, Name: service.Name}, existingService)
+	if apierrors.IsNotFound(err) {
+		return r.Client.Create(ctx, service)
+	}
+	if existingService.Spec.Type != service.Spec.Type {
+		return errors.New("changing service.spec.type is not possible")
+	}
+	service.ResourceVersion = existingService.ResourceVersion
+	return r.Client.Update(ctx, service)
+}
+
 func calcHash(webapp *webappv1alpha1.Webapp) (string, error) {
 	bytes, err := json.Marshal(webapp.Spec)
 	if err != nil {
@@ -206,6 +257,22 @@ func calcHash(webapp *webappv1alpha1.Webapp) (string, error) {
 	}
 	hash := sha256.Sum256(bytes)
 	return hex.EncodeToString(hash[:])[:8], nil
+}
+
+func toSerivceObjectKey(w *webappv1alpha1.Webapp) client.ObjectKey {
+	return client.ObjectKey{Name: serviceName(w), Namespace: w.Namespace}
+}
+
+func toDeploymentObjectKey(w *webappv1alpha1.Webapp) client.ObjectKey {
+	return client.ObjectKey{Name: deploymentName(w), Namespace: w.Namespace}
+}
+
+func serviceName(webapp *webappv1alpha1.Webapp) string {
+	return fmt.Sprintf("%s-service", webapp.Name)
+}
+
+func deploymentName(webapp *webappv1alpha1.Webapp) string {
+	return fmt.Sprintf("%s-deployment", webapp.Name)
 }
 
 // SetupWithManager sets up the controller with the Manager.
