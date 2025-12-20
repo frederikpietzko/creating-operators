@@ -211,8 +211,9 @@ func (r *WebappReconciler) upsertService(ctx context.Context, service *coreV1.Se
 	service.Name = serviceName(webapp)
 	service.Namespace = webapp.Namespace
 	service.Labels = map[string]string{
-		"app":         webapp.Name,
-		MANAGED_LABEL: "true",
+		"app":          webapp.Name,
+		MANAGED_LABEL:  "true",
+		REVISION_LABEL: hash,
 	}
 	ports := []coreV1.ServicePort{}
 	for _, port := range webapp.Spec.Ports {
