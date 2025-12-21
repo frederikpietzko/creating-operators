@@ -10,4 +10,7 @@ spec:
     name: "nginx:latest"
   ports:
     - "8000"
+  ingress:
+    host: "testing.de"
+    path: "/*"
 

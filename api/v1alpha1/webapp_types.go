@@ -36,7 +36,7 @@ type WebappSpec struct {
 	// +required
 	Ports []string `json:"ports,omitempty"`
 	// +optional
-	Ingress Ingress `json:"ingress,omitempty"`
+	Ingress *Ingress `json:"ingress,omitempty"`
 }
 
 type Image struct {
@@ -44,6 +44,8 @@ type Image struct {
 }
 
 type Ingress struct {
+	// +optional
+	Host string `json:"host,omitempty"`
 	// +optional
 	Path string `json:"path,omitempty"`
 }
