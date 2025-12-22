@@ -1,0 +1,3 @@
+- The user should not have to create builders and service accounts manually in namespace
+=> copy secrets and service accounts from kpack namespace to repo namespace if they do not exists
+
