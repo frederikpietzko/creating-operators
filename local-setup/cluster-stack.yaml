@@ -1,0 +1,14 @@
+apiVersion: kpack.io/v1alpha2
+kind: ClusterStack
+metadata:
+  name: spring-boot
+  namespace: kpack
+  labels:
+    "io.buildpacks.stack.id": "spring-boot"
+spec:
+  id: "paketo-buildpacks/spring-boot"
+  buildImage:
+    image: "paketobuildpacks/spring-boot"
+  runImage:
+    image: "paketobuildpacks/spring-boot"
+

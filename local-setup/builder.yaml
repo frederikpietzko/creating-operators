@@ -1,0 +1,19 @@
+apiVersion: kpack.io/v1alpha2
+kind: Builder
+metadata:
+  name: builder
+  namespace: kpack
+spec:
+  serviceAccountName: kpack-service-account
+  tag: frederikpietzko/java-builder
+  stack:
+    name: base
+    kind: ClusterStack
+  store:
+    name: cluster-store
+    kind: ClusterStore
+  order:
+  - group:
+    - id: paketo-buildpacks/java
+  - group:
+    - id: paketo-buildpacks/nodejs

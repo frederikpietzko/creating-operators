@@ -1,0 +1,10 @@
+apiVersion: kpack.io/v1alpha2
+kind: ClusterStore
+metadata:
+  name: cluster-store
+  namespace: kpack
+spec:
+  sources:
+    - image: paketobuildpacks/java
+    - image: paketobuildpacks/spring-boot
+    - image: paketobuildpacks/nodejs
