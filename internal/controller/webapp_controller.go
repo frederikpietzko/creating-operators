@@ -146,8 +146,8 @@ func (r *WebappReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		return ctrl.Result{}, err
 	}
 
-	if err := r.updateIngress(ctx, ingress, !created, hash); err != nil {
-		return ctrl.Result{}, err
+	if err := r.updateIngress(ctx, ingress, created, hash); err != nil {
+		return ctrl.Result{}, client.IgnoreAlreadyExists(err)
 	}
 
 	return ctrl.Result{}, nil
@@ -428,7 +428,7 @@ func (r *WebappReconciler) createIngress(ctx context.Context, hash string) (*net
 	return ingress, false, nil
 }
 
-func (r *WebappReconciler) updateIngress(ctx context.Context, ingress *networkingV1.Ingress, present bool, hash string) error {
+func (r *WebappReconciler) updateIngress(ctx context.Context, ingress *networkingV1.Ingress, created bool, hash string) error {
 	l := logf.FromContext(ctx)
 	ingress.Labels[REVISION_LABEL] = hash
 	webappsList := &webappv1alpha1.WebappList{}
@@ -482,7 +482,7 @@ func (r *WebappReconciler) updateIngress(ctx context.Context, ingress *networkin
 		rules = append(rules, rule)
 	}
 	ingress.Spec.Rules = rules
-	if present {
+	if !created {
 		l.Info("Updating Ingress", "ingress", ingress)
 		return r.Client.Update(ctx, ingress)
 	}

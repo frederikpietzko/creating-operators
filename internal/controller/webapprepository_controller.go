@@ -63,21 +63,8 @@ func (r *WebappRepositoryReconciler) Reconcile(ctx context.Context, req ctrl.Req
 
 	repo := &webappv1alpha1.WebappRepository{}
 	err := r.Client.Get(ctx, req.NamespacedName, repo)
-	if client.IgnoreNotFound(err) != nil {
-		return ctrl.Result{}, err
-	}
-
-	if apierrors.IsNotFound(err) {
-		if err := r.Client.Get(ctx, req.NamespacedName, image); err != nil {
-			return ctrl.Result{}, client.IgnoreNotFound(err)
-		}
-		isReady := image.Status.GetCondition(buildv1alpha1.ConditionReady).IsTrue()
-		latestImage := image.Status.LatestImage
-		if isReady && latestImage != "" {
-			return ctrl.Result{}, r.upsertWebappWithImage(ctx, image, repo)
-		}
-		l.Info("Waiting for image to become ready...", "image", image)
-		return ctrl.Result{}, nil
+	if err != nil {
+		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
 	repoHash, err := calcRepoHash(repo)
@@ -85,12 +72,30 @@ func (r *WebappRepositoryReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		return ctrl.Result{}, err
 	}
 
-	return r.upsertImage(ctx, image, repo, repoHash)
+	err = r.Client.Get(ctx, imageObjectKey(repo), image)
+	if apierrors.IsNotFound(err) {
+		_, err := r.upsertImage(ctx, image, repo, repoHash)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+	}
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	isReady := image.Status.GetCondition(buildv1alpha1.ConditionReady).IsTrue()
+	latestImage := image.Status.LatestImage
+	if isReady && latestImage != "" {
+		l.Info("Upserting webapp with image", "image", image)
+		return ctrl.Result{}, r.upsertWebappWithImage(ctx, image, repo)
+	}
+	l.Info("Waiting for image to become Ready", "image", image)
+	return ctrl.Result{}, nil
 }
 
 func (r *WebappRepositoryReconciler) upsertWebappWithImage(ctx context.Context, image *buildv1alpha2.Image, repo *webappv1alpha1.WebappRepository) error {
 	webapp := &webappv1alpha1.Webapp{}
-	webapp.Name = repo.Spec.Tempalte.Name
+	webapp.Name = repo.Name + "-webapp"
 	webapp.Namespace = repo.Namespace
 	webapp.Spec = webappv1alpha1.WebappSpec{
 		Image: webappv1alpha1.Image{
