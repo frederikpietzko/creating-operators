@@ -4,6 +4,22 @@ metadata:
   labels:
     app.kubernetes.io/name: operator
     app.kubernetes.io/managed-by: kustomize
-  name: webapprepository-sample
+  name: spring-petclinic
 spec:
-  # TODO(user): Add fields here
+  serviceAccountName: kpack-service-account
+  source:
+    gitUrl: https://github.com/spring-projects/spring-petclinic
+    revision: main
+  build:
+    - name: BP_JVM_VERSION
+      value: "17"
+  image:
+    tag: frederikpietzko/spring-petclinic
+  template:
+    spec:
+      ports:
+        - "8080"
+      ingress:
+        host: testing.com
+        path: "/*"
+

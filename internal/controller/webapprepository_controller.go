@@ -57,6 +57,7 @@ type WebappRepositoryReconciler struct {
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.22.4/pkg/reconcile
 func (r *WebappRepositoryReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	// TODO: Add logging, something doesn't seem right
 	l := logf.FromContext(ctx)
 	image := &buildv1alpha2.Image{}
 
