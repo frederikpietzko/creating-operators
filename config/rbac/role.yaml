@@ -17,8 +17,27 @@ rules:
   - update
   - watch
 - apiGroups:
+  - kpack.io
+  resources:
+  - images
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - kpack.io
+  resources:
+  - images/status
+  verbs:
+  - get
+- apiGroups:
   - webapp.kops.io
   resources:
+  - webapprepositories
   - webapps
   verbs:
   - create
@@ -31,12 +50,14 @@ rules:
 - apiGroups:
   - webapp.kops.io
   resources:
+  - webapprepositories/finalizers
   - webapps/finalizers
   verbs:
   - update
 - apiGroups:
   - webapp.kops.io
   resources:
+  - webapprepositories/status
   - webapps/status
   verbs:
   - get

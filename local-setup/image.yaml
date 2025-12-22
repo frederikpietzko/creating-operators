@@ -4,7 +4,7 @@ metadata:
   name: test-image
   namespace: kpack
 spec:
-  tag: testing
+  tag: frederikpietzko/spring-petclinic
   serviceAccountName: kpack-service-account
   builder:
     name: builder
@@ -13,4 +13,7 @@ spec:
     git:
       url: https://github.com/spring-projects/spring-petclinic
       revision: fd4361b118931e07a7a1bde04750ec32a5fdb56e
-    
+  build:
+    env:
+      - name: BP_JVM_VERSION
+        value: "17"

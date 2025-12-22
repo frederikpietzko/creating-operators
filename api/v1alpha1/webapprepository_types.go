@@ -18,48 +18,72 @@ package v1alpha1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
-// WebappSpec defines the desired state of Webapp
-type WebappSpec struct {
+// WebappRepositorySpec defines the desired state of WebappRepository
+type WebappRepositorySpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 	// The following markers will use OpenAPI v3 schema to validate the value
 	// More info: https://book.kubebuilder.io/reference/markers/crd-validation.html
 
-	// image is the image configuration for the Webapp
 	// +required
-	Image Image `json:"image,omitempty"`
+	ServiceAccountName string `json:"serviceAccountName,omitempty"`
 	// +required
+	Source Source `json:"source,omitempty"`
+	// +required
+	ImageSpec ImageSpec `json:"image,omitempty"`
+	// +optional
+	BuildEnv []BuildVar `json:"build,omitempty"`
+	// +required
+	Tempalte WebappTempalte `json:"template,omitempty"`
+}
+
+type WebappTempalte struct {
+	metav1.TypeMeta `json:",inline"`
+
+	// metadata is a standard object metadata
+	// +optional
+	metav1.ObjectMeta `json:"metadata,omitzero"`
+	Spec              WebappTemplateSpec `json:"spec,omitzero"`
+}
+
+type WebappTemplateSpec struct {
 	Ports []string `json:"ports,omitempty"`
 	// +optional
 	Ingress *Ingress `json:"ingress,omitempty"`
 }
 
-type Image struct {
+type Source struct {
+	// +required
+	GitUrl string `json:"gitUrl,omitempty"`
+	// +required
+	Revision string `json:"revision,omitempty"`
+}
+
+type ImageSpec struct {
+	Tag string `json:"tag,omitempty"`
+}
+
+type BuildVar struct {
+	// +required
 	Name string `json:"name,omitempty"`
+	// +required
+	Value string `json:"value,omitempty"`
 }
 
-type Ingress struct {
-	// +optional
-	Host string `json:"host,omitempty"`
-	// +optional
-	Path string `json:"path,omitempty"`
-}
-
-// WebappStatus defines the observed state of Webapp.
-type WebappStatus struct {
+// WebappRepositoryStatus defines the observed state of WebappRepository.
+type WebappRepositoryStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
 	// For Kubernetes API conventions, see:
 	// https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#typical-status-properties
 
-	// conditions represent the current state of the Webapp resource.
+	// conditions represent the current state of the WebappRepository resource.
 	// Each condition has a unique type and reflects the status of a specific aspect of the resource.
 	//
 	// Standard condition types include:
@@ -77,39 +101,32 @@ type WebappStatus struct {
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 
-// Webapp is the Schema for the webapps API
-type Webapp struct {
+// WebappRepository is the Schema for the webapprepositories API
+type WebappRepository struct {
 	metav1.TypeMeta `json:",inline"`
 
 	// metadata is a standard object metadata
 	// +optional
 	metav1.ObjectMeta `json:"metadata,omitzero"`
 
-	// spec defines the desired state of Webapp
+	// spec defines the desired state of WebappRepository
 	// +required
-	Spec WebappSpec `json:"spec"`
+	Spec WebappRepositorySpec `json:"spec"`
 
-	// status defines the observed state of Webapp
+	// status defines the observed state of WebappRepository
 	// +optional
-	Status WebappStatus `json:"status,omitzero"`
-}
-
-func (w *Webapp) Key() client.ObjectKey {
-	return client.ObjectKey{
-		Name:      w.Name,
-		Namespace: w.Namespace,
-	}
+	Status WebappRepositoryStatus `json:"status,omitzero"`
 }
 
 // +kubebuilder:object:root=true
 
-// WebappList contains a list of Webapp
-type WebappList struct {
+// WebappRepositoryList contains a list of WebappRepository
+type WebappRepositoryList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitzero"`
-	Items           []Webapp `json:"items"`
+	Items           []WebappRepository `json:"items"`
 }
 
 func init() {
-	SchemeBuilder.Register(&Webapp{}, &WebappList{})
+	SchemeBuilder.Register(&WebappRepository{}, &WebappRepositoryList{})
 }

@@ -1,0 +1,9 @@
+apiVersion: webapp.kops.io/v1alpha1
+kind: WebappRepository
+metadata:
+  labels:
+    app.kubernetes.io/name: operator
+    app.kubernetes.io/managed-by: kustomize
+  name: webapprepository-sample
+spec:
+  # TODO(user): Add fields here
