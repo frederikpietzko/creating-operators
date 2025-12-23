@@ -1,3 +1,6 @@
 - The user should not have to create builders and service accounts manually in namespace
 => copy secrets and service accounts from kpack namespace to repo namespace if they do not exists
 
+- test if it still work when deployed to the cluster instead of being run locally
+
+- small (ktor?) webui to put in secrets and register new repo's
