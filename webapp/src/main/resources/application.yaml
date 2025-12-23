@@ -1,0 +1,10 @@
+ktor:
+  application:
+    modules:
+      - com.github.frederikpietzko.ApplicationKt.module
+  deployment:
+    port: 8080
+  koog:
+    openrouter:
+      apiKey: ${OPENROUTER_API_KEY}
+      baseUrl: https://openrouter.ai
