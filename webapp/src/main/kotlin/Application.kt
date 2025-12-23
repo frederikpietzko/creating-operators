@@ -1,5 +1,7 @@
-package com.github.frederikpietzko
+package io.kops.webapp
 
+import io.fabric8.kubernetes.api.model.KubernetesResourceList
+import io.kops.webapp.v1alpha1.WebappRepository
 import io.ktor.server.application.*
 
 fun main(args: Array<String>) {
@@ -9,6 +11,7 @@ fun main(args: Array<String>) {
 fun Application.module() {
     configureMonitoring()
     configureSerialization()
+    configureKubernetes()
     configureFrameworks()
     configureRouting()
 }
