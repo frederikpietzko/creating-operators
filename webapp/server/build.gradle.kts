@@ -26,6 +26,10 @@ application {
     mainClass = "io.ktor.server.netty.EngineMain"
 }
 
+tasks.compileKotlin {
+    dependsOn(tasks.crd2java)
+}
+
 dependencies {
     implementation("io.ktor:ktor-server-core")
     implementation("io.ktor:ktor-server-auto-head-response")
@@ -40,9 +44,6 @@ dependencies {
     implementation("io.ktor:ktor-server-config-yaml")
     implementation("io.ktor:ktor-server-html-builder:3.3.2")
     implementation("io.fabric8:generator-annotations:7.3.1")
-    implementation("org.jetbrains.kotlinx:kotlinx-html:0.12.0")
-    implementation("io.ktor:ktor-server-htmx:3.3.2")
-    implementation("io.ktor:ktor-htmx-html:3.3.2")
     implementation("io.fabric8:kubernetes-client:7.3.1")
     testImplementation("io.ktor:ktor-server-test-host")
     testImplementation("org.jetbrains.kotlin:kotlin-test-junit:$kotlin_version")
